@@ -1,0 +1,131 @@
+// Отбор вакансий перед нейросетью: свежесть, ключевые слова, стоп-слова в заголовке,
+// отсев повторов по ссылке и по похожему тексту (одна вакансия в разных каналах).
+'use strict';
+
+const { normalizeText, tokens } = typeof textLib !== 'undefined' ? textLib : require('./text.js');
+
+const TRACKING = /^(utm_\w+|fbclid|gclid|yclid|ref|from|hhtmFrom\w*|query)$/i;
+
+// Одна вакансия по разным ссылкам: без схемы, www, якоря, меток и конечной косой черты.
+function normalizeUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+  let u;
+  try {
+    u = new URL(raw);
+  } catch {
+    return raw.toLowerCase();
+  }
+  const params = [...u.searchParams.entries()]
+    .filter(([k]) => !TRACKING.test(k))
+    .sort(([a], [b]) => a.localeCompare(b));
+  const query = params.length ? '?' + new URLSearchParams(params).toString() : '';
+  const host = u.hostname.toLowerCase().replace(/^www\./, '');
+  return host + u.pathname.replace(/\/+$/, '') + query;
+}
+
+// Слово ищется как начало слова в тексте («стажировк» найдёт «стажировка»),
+// фраза как подряд идущие слова. Слова до трёх букв только целиком («ии», «ml»).
+function keywordMatches(textTokens, keyword) {
+  const kw = tokens(keyword);
+  if (!kw.length) return false;
+  for (let i = 0; i + kw.length <= textTokens.length; i++) {
+    let ok = true;
+    for (let j = 0; j < kw.length; j++) {
+      const t = textTokens[i + j];
+      const k = kw[j];
+      if (k.length <= 3 ? t !== k : !t.startsWith(k)) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok) return true;
+  }
+  return false;
+}
+
+function findKeywords(text, keywords) {
+  const tt = tokens(text);
+  return (keywords || []).filter((k) => keywordMatches(tt, k));
+}
+
+// Отпечаток для сравнения: заголовок и начало текста.
+function fingerprint(item) {
+  return `${(item && item.title) || ''} ${String((item && item.text) || '').slice(0, 300)}`;
+}
+
+// Коэффициент Жаккара по основам слов (первые 5 букв), короткие слова не считаются.
+function similarity(a, b) {
+  const stems = (s) => new Set(tokens(s).filter((t) => t.length > 2).map((t) => t.slice(0, 5)));
+  const A = stems(a);
+  const B = stems(b);
+  if (A.size < 3 || B.size < 3) return 0;
+  let inter = 0;
+  for (const x of A) if (B.has(x)) inter++;
+  return inter / (A.size + B.size - inter);
+}
+
+// items: [{ title, link, text, date, source }]. seen: недавние записи журнала { link, title, text }.
+// Возвращает принятые и отклонённые с причиной. options.now для проверки свежести.
+function filterVacancies(items, config = {}, seen = [], options = {}) {
+  const keywords = config.keywords || [];
+  const exclude = config.excludeTitle || [];
+  const threshold = config.similarityThreshold ?? 0.8;
+  const maxAge = (config.maxAgeDays ?? 4) * 86400000;
+  const now = Date.parse(options.now || new Date().toISOString());
+
+  const accepted = [];
+  const rejected = [];
+  const seenUrls = new Set(seen.map((s) => normalizeUrl(s.link)).filter(Boolean));
+  const seenPrints = seen.map(fingerprint);
+
+  for (const item of items || []) {
+    const reject = (reason, extra = {}) => rejected.push({ ...item, reason, ...extra });
+    const title = String((item && item.title) || '').trim();
+    if (!title || !item.link) {
+      reject('нет заголовка или ссылки');
+      continue;
+    }
+    const url = normalizeUrl(item.link);
+    if (seenUrls.has(url)) {
+      reject('повтор ссылки');
+      continue;
+    }
+    seenUrls.add(url);
+    const t = Date.parse(item.date);
+    if (Number.isFinite(t) && now - t > maxAge) {
+      reject('старое объявление');
+      continue;
+    }
+    const bad = findKeywords(title, exclude);
+    if (bad.length) {
+      reject('стоп-слово в заголовке', { matched: bad });
+      continue;
+    }
+    const matched = findKeywords(`${title} ${item.text || ''}`, keywords);
+    if (keywords.length && !matched.length) {
+      reject('нет ключевых слов');
+      continue;
+    }
+    const print = fingerprint(item);
+    let dup = null;
+    for (const p of seenPrints) {
+      const sim = similarity(print, p);
+      if (sim >= threshold) {
+        dup = Math.round(sim * 100) / 100;
+        break;
+      }
+    }
+    if (dup !== null) {
+      reject('похожая вакансия уже была', { similarity: dup });
+      continue;
+    }
+    seenPrints.push(print);
+    accepted.push({ ...item, matched });
+  }
+  return { accepted, rejected };
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = { normalizeUrl, findKeywords, similarity, filterVacancies };
+}

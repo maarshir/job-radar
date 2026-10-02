@@ -1,0 +1,15 @@
+{
+  "checked": "2026-10-02",
+  "note": "Поиск hh.ru отдаёт RSS по адресу /search/vacancy/rss с теми же параметрами, что у поиска на сайте; открытый поиск через api.hh.ru с весны 2026 закрыт без токена приложения. Каналы Телеграма читаются со страницы t.me/s/<канал>, предпросмотр у этих каналов открыт.",
+  "hh": [
+    { "name": "hh.ru: Python без опыта", "params": { "text": "python", "experience": "noExperience" } },
+    { "name": "hh.ru: стажёр-разработчик", "params": { "text": "стажер разработчик" } },
+    { "name": "hh.ru: нейросети без опыта", "params": { "text": "LLM OR нейросети OR \"машинное обучение\"", "experience": "noExperience" } }
+  ],
+  "rss": [],
+  "telegram": [
+    { "name": "Вакансии и стажировки для начинающих", "channel": "junior_vacancies" },
+    { "name": "Python Job", "channel": "job_python" },
+    { "name": "Young & Junior", "channel": "young_june" }
+  ]
+}

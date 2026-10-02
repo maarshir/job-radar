@@ -1,0 +1,15 @@
+{
+  "name": "job-radar",
+  "version": "0.1.0",
+  "description": "Конвейер n8n: вакансии с hh.ru, из каналов Телеграма и лент RSS, оценка нейросетью под профиль кандидата, подборка в Телеграм",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "build": "node scripts/build-workflows.js"
+  },
+  "license": "MIT"
+}

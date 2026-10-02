@@ -1,0 +1,24 @@
+# n8n для job-radar. Запуск: cp .env.example .env, заполнить, docker compose up -d.
+# Если n8n на сервере уже работает (например, из content-factory), второй не нужен:
+# конвейер импортируется в тот же n8n. Подробно: docs/setup.md.
+services:
+  n8n:
+    # Версия закреплена: при обновлении сверить версию Node в образе (нужна 22.5+ для node:sqlite).
+    image: docker.n8n.io/n8nio/n8n:2.41.5
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      # Ключ шифрования учётных данных n8n. Потеряете его, и сохранённые ключи не расшифруются.
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE}
+      TZ: ${GENERIC_TIMEZONE}
+      # Узлам Code разрешён только встроенный модуль node:sqlite (журнал).
+      NODE_FUNCTION_ALLOW_BUILTIN: node:sqlite
+      N8N_DIAGNOSTICS_ENABLED: "false"
+    volumes:
+      # Здесь же лежит журнал: /home/node/.n8n/job-radar.sqlite
+      - n8n_data:/home/node/.n8n
+
+volumes:
+  n8n_data:
