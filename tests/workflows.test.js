@@ -26,6 +26,7 @@ test('узлы идут цепочкой, конвейер выключен', ()
     assert.strictEqual(wf.connections[CHAIN[i]].main[0][0].node, CHAIN[i + 1], CHAIN[i]);
   }
   assert.strictEqual(wf.active, false);
+  assert.match(String(wf.id), /^[A-Za-z0-9]{16}$/, 'нужен id для импорта из командной строки');
   const settings = byName['Настройки'].parameters.assignments.assignments.map((a) => a.name);
   for (const k of ['LLM_BASE_URL', 'LLM_MODEL', 'CHAT_ID', 'JR_DB_PATH', 'MAX_ITEMS', 'MIN_SCORE', 'USER_AGENT']) assert.ok(settings.includes(k), k);
 });

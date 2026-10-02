@@ -9,6 +9,7 @@
 // (только проверить, что вклеенное совпадает с src/; так делает тест).
 'use strict';
 
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -60,6 +61,13 @@ function build({ write = false } = {}) {
   for (const rel of workflowFiles()) {
     const wf = JSON.parse(readRel(rel));
     let dirty = false;
+    // Импорт из командной строки (n8n import:workflow) требует id конвейера:
+    // 16 букв и цифр. Без него база n8n отвечает NOT NULL constraint failed.
+    if (!/^[A-Za-z0-9]{16}$/.test(String(wf.id || ''))) {
+      wf.id = crypto.createHash('sha256').update(rel).digest('hex').slice(0, 16);
+      changed.push(`${rel}: id`);
+      dirty = true;
+    }
     for (const node of wf.nodes || []) {
       if (node.type !== 'n8n-nodes-base.code') continue;
       const m = String(node.notes || '').match(NOTE);

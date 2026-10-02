@@ -22,7 +22,11 @@ n8n слушает только localhost:5678. С телефона или др�
 
 ## Конвейер
 
-1. В n8n: Workflows, Import from File, `workflows/collect.json`.
+1. Импорт. В n8n: Workflows, Import from File, `workflows/collect.json`. Или на сервере из папки репозитория:
+   ```
+   docker compose cp workflows/collect.json n8n:/tmp/collect.json
+   docker compose exec n8n n8n import:workflow --input=/tmp/collect.json
+   ```
 2. Учётные данные. В узле «Нейросеть» учётные данные OpenAI с ключом и Base URL (для Groq `https://api.groq.com/openai/v1`), в узле «Отправка» учётные данные Telegram с токеном бота. Если они уже созданы для другого конвейера, их можно выбрать из списка.
 3. Узел «Настройки»:
    - `LLM_MODEL` и тот же адрес в `LLM_BASE_URL`;
