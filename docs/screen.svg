@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="770" height="350" viewBox="0 0 770 350" font-family="-apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+<defs><pattern id="d" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.1" fill="#d5d8e0"/></pattern>
+<marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa0ac"/></marker></defs>
+<rect width="770" height="350" rx="10" fill="#f5f6f8"/><rect width="770" height="350" rx="10" fill="url(#d)"/>
+<text x="754" y="338" text-anchor="end" font-size="11" fill="#9aa0ac">схема из workflows/collect.json</text>
+<text x="30" y="34" font-size="15" font-weight="600" fill="#2b2d42">Сбор вакансий</text>
+<path d="M94,88.0 C137.0,88.0 137.0,88.0 176,88.0" fill="none" stroke="#9aa0ac" stroke-width="2" marker-end="url(#a)"/>
+<path d="M244,88.0 C287.0,88.0 287.0,88.0 326,88.0" fill="none" stroke="#9aa0ac" stroke-width="2" marker-end="url(#a)"/>
+<path d="M394,88.0 C437.0,88.0 437.0,88.0 476,88.0" fill="none" stroke="#9aa0ac" stroke-width="2" marker-end="url(#a)"/>
+<path d="M544,88.0 C587.0,88.0 587.0,88.0 626,88.0" fill="none" stroke="#9aa0ac" stroke-width="2" marker-end="url(#a)"/>
+<path d="M694,88.0 h14 V157.0 H12 V218.0 H26" fill="none" stroke="#9aa0ac" stroke-width="2" marker-end="url(#a)"/>
+<path d="M94,218.0 C137.0,218.0 137.0,218.0 176,218.0" fill="none" stroke="#9aa0ac" stroke-width="2" marker-end="url(#a)"/>
+<path d="M244,218.0 C287.0,218.0 287.0,218.0 326,218.0" fill="none" stroke="#9aa0ac" stroke-width="2" marker-end="url(#a)"/>
+<path d="M394,218.0 C437.0,218.0 437.0,218.0 476,218.0" fill="none" stroke="#9aa0ac" stroke-width="2" marker-end="url(#a)"/>
+<path d="M544,218.0 C587.0,218.0 587.0,218.0 626,218.0" fill="none" stroke="#9aa0ac" stroke-width="2" marker-end="url(#a)"/>
+<rect x="30" y="56" width="64" height="64" rx="26" fill="#fff" stroke="#c9ccd6" stroke-width="2"/>
+<text x="62.0" y="97.8" text-anchor="middle" font-size="28" font-weight="700" fill="#ff6d5a">◷</text>
+<text x="62.0" y="138" text-anchor="middle" font-size="12.5" fill="#3d4152">Расписание</text>
+<rect x="180" y="56" width="64" height="64" rx="10" fill="#fff" stroke="#c9ccd6" stroke-width="2"/>
+<text x="212.0" y="97.8" text-anchor="middle" font-size="28" font-weight="700" fill="#4f8cff">✎</text>
+<text x="212.0" y="138" text-anchor="middle" font-size="12.5" fill="#3d4152">Настройки</text>
+<rect x="330" y="56" width="64" height="64" rx="10" fill="#fff" stroke="#c9ccd6" stroke-width="2"/>
+<text x="362.0" y="94.3" text-anchor="middle" font-size="18" font-weight="700" fill="#ff9b00">{ }</text>
+<text x="362.0" y="138" text-anchor="middle" font-size="12.5" fill="#3d4152">Источники</text>
+<rect x="480" y="56" width="64" height="64" rx="10" fill="#fff" stroke="#c9ccd6" stroke-width="2"/>
+<text x="512.0" y="97.8" text-anchor="middle" font-size="28" font-weight="700" fill="#2f7de1">⇅</text>
+<text x="512.0" y="138" text-anchor="middle" font-size="12.5" fill="#3d4152">Загрузка</text>
+<rect x="630" y="56" width="64" height="64" rx="10" fill="#fff" stroke="#c9ccd6" stroke-width="2"/>
+<text x="662.0" y="94.3" text-anchor="middle" font-size="18" font-weight="700" fill="#ff9b00">{ }</text>
+<text x="662.0" y="138" text-anchor="middle" font-size="12.5" fill="#3d4152">Отбор</text>
+<rect x="30" y="186" width="64" height="64" rx="10" fill="#fff" stroke="#c9ccd6" stroke-width="2"/>
+<text x="62.0" y="224.3" text-anchor="middle" font-size="18" font-weight="700" fill="#ff9b00">{ }</text>
+<text x="62.0" y="268" text-anchor="middle" font-size="12.5" fill="#3d4152">Промпт</text>
+<rect x="180" y="186" width="64" height="64" rx="10" fill="#fff" stroke="#c9ccd6" stroke-width="2"/>
+<text x="212.0" y="227.8" text-anchor="middle" font-size="28" font-weight="700" fill="#2f7de1">⇅</text>
+<text x="212.0" y="268" text-anchor="middle" font-size="12.5" fill="#3d4152">Нейросеть</text>
+<rect x="330" y="186" width="64" height="64" rx="10" fill="#fff" stroke="#c9ccd6" stroke-width="2"/>
+<text x="362.0" y="224.3" text-anchor="middle" font-size="18" font-weight="700" fill="#ff9b00">{ }</text>
+<text x="362.0" y="268" text-anchor="middle" font-size="12.5" fill="#3d4152">Оценка</text>
+<rect x="480" y="186" width="64" height="64" rx="10" fill="#fff" stroke="#c9ccd6" stroke-width="2"/>
+<text x="512.0" y="224.3" text-anchor="middle" font-size="18" font-weight="700" fill="#ff9b00">{ }</text>
+<text x="512.0" y="268" text-anchor="middle" font-size="12.5" fill="#3d4152">Подборка</text>
+<rect x="630" y="186" width="64" height="64" rx="10" fill="#fff" stroke="#c9ccd6" stroke-width="2"/>
+<text x="662.0" y="227.8" text-anchor="middle" font-size="28" font-weight="700" fill="#29a9eb">✈</text>
+<text x="662.0" y="268" text-anchor="middle" font-size="12.5" fill="#3d4152">Отправка</text>
+</svg>
