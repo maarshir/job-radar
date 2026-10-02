@@ -53,6 +53,13 @@ test('код узлов совпадает с src/ (npm run build)', () => {
   assert.deepStrictEqual(build({ write: false }), []);
 });
 
+test('узлы Code не используют URL и URLSearchParams (в песочнице n8n их нет)', () => {
+  for (const n of wf.nodes.filter((x) => x.type === 'n8n-nodes-base.code')) {
+    const code = n.parameters.jsCode.replace(/^\s*\/\/.*$/gm, '');
+    assert.doesNotMatch(code, /\bnew URL\(|URLSearchParams/, n.name);
+  }
+});
+
 test('узлам Code нужен только node:sqlite', () => {
   for (const n of wf.nodes.filter((x) => x.type === 'n8n-nodes-base.code')) {
     const code = n.parameters.jsCode;
@@ -67,6 +74,7 @@ test('узлам Code нужен только node:sqlite', () => {
 });
 
 // Запуск кода узла вне n8n: $input, $('Узел') и require как в узле.
+// URL и URLSearchParams закрыты, как в песочнице n8n 2.x.
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 function runNode(name, input, nodes) {
   const wrap = (items) => ({ all: () => items, first: () => items[0], itemMatching: (i) => items[i] });
@@ -78,7 +86,8 @@ function runNode(name, input, nodes) {
     if (m !== 'node:sqlite') throw new Error(`модуль закрыт: ${m}`);
     return require(m);
   };
-  return new AsyncFunction('$input', '$', 'require', byName[name].parameters.jsCode)(wrap(input), $, req);
+  const code = byName[name].parameters.jsCode;
+  return new AsyncFunction('$input', '$', 'require', 'URL', 'URLSearchParams', code)(wrap(input), $, req, undefined, undefined);
 }
 const j = (arr) => arr.map((json) => ({ json }));
 

@@ -7,21 +7,24 @@ const { normalizeText, tokens } = typeof textLib !== 'undefined' ? textLib : req
 const TRACKING = /^(utm_\w+|fbclid|gclid|yclid|ref|from|hhtmFrom\w*|query)$/i;
 
 // Одна вакансия по разным ссылкам: без схемы, www, якоря, меток и конечной косой черты.
+// Разбор вручную: в песочнице узла Code n8n нет URL и URLSearchParams.
 function normalizeUrl(url) {
   const raw = String(url || '').trim();
   if (!raw) return '';
-  let u;
-  try {
-    u = new URL(raw);
-  } catch {
-    return raw.toLowerCase();
-  }
-  const params = [...u.searchParams.entries()]
+  const m = raw.match(/^[a-z][a-z0-9+.-]*:\/\/([^\/?#]+)([^?#]*)(?:\?([^#]*))?/i);
+  if (!m) return raw.toLowerCase();
+  const host = m[1].toLowerCase().replace(/^www\./, '').replace(/:(80|443)$/, '');
+  const params = (m[3] || '')
+    .split('&')
+    .filter(Boolean)
+    .map((p) => {
+      const i = p.indexOf('=');
+      return i < 0 ? [p, ''] : [p.slice(0, i), p.slice(i + 1)];
+    })
     .filter(([k]) => !TRACKING.test(k))
-    .sort(([a], [b]) => a.localeCompare(b));
-  const query = params.length ? '?' + new URLSearchParams(params).toString() : '';
-  const host = u.hostname.toLowerCase().replace(/^www\./, '');
-  return host + u.pathname.replace(/\/+$/, '') + query;
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  const query = params.length ? '?' + params.map(([k, v]) => `${k}=${v}`).join('&') : '';
+  return host + m[2].replace(/\/+$/, '') + query;
 }
 
 // Слово ищется как начало слова в тексте («стажировк» найдёт «стажировка»),

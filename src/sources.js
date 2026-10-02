@@ -2,13 +2,19 @@
 // На выходе по одному адресу на источник: { kind, name, url }.
 'use strict';
 
+// В песочнице узла Code n8n нет URL и URLSearchParams, поэтому адреса
+// собираются и проверяются вручную.
+
 // Общие параметры поиска hh.ru: вся Россия, сначала свежие. Параметры источника важнее.
 const HH_DEFAULTS = { area: '113', order_by: 'publication_time', items_on_page: '50' };
 
 function hhUrl(params = {}) {
-  const q = new URLSearchParams({ ...HH_DEFAULTS, ...params });
-  if (!q.get('text')) throw new Error('у поиска hh.ru нет text');
-  return 'https://hh.ru/search/vacancy/rss?' + q.toString();
+  const all = { ...HH_DEFAULTS, ...params };
+  if (!String(all.text || '').trim()) throw new Error('у поиска hh.ru нет text');
+  const query = Object.entries(all)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+    .join('&');
+  return 'https://hh.ru/search/vacancy/rss?' + query;
 }
 
 function channelName(channel) {
@@ -21,9 +27,10 @@ function buildSources(config = {}) {
   const out = [];
   for (const s of config.hh || []) out.push({ kind: 'rss', name: s.name, url: hhUrl(s.params) });
   for (const s of config.rss || []) {
-    const u = new URL(s.url);
-    if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new Error(`лента не http(s): ${s.url}`);
-    out.push({ kind: 'rss', name: s.name || u.hostname, url: u.href });
+    const url = String(s.url || '').trim();
+    const m = url.match(/^https?:\/\/([^\/?#\s]+)[^\s]*$/i);
+    if (!m) throw new Error(`лента не http(s): ${s.url}`);
+    out.push({ kind: 'rss', name: s.name || m[1].toLowerCase(), url });
   }
   for (const s of config.telegram || []) {
     const ch = channelName(s.channel);
