@@ -20,7 +20,7 @@ test('имя канала: @, ссылка, проверка', () => {
 
 test('список источников из sources.json', () => {
   const list = buildSources(SOURCES);
-  assert.ok(list.filter((s) => s.kind === 'rss').length >= 2);
+  assert.ok(list.filter((s) => s.kind === 'trudvsem').length >= 2);
   assert.ok(list.filter((s) => s.kind === 'telegram').length >= 2);
   for (const s of list) assert.match(s.url, /^https:\/\//);
   assert.strictEqual(new Set(list.map((s) => s.url)).size, list.length, 'источники повторяются');

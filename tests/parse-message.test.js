@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { parseScore } = require('../src/parse.js');
-const { buildDigest, formatVacancy } = require('../src/message.js');
+const { buildDigest, formatVacancy, formatCard, buildCards } = require('../src/message.js');
 const { fillPrompt } = require('../src/fill.js');
 
 const answer = (o) => '```json\n' + JSON.stringify(o) + '\n```';
@@ -32,6 +32,23 @@ test('подборка: экранирование, сортировка, дел
   assert.ok(many.length > 1);
   assert.ok(many.every((m) => m.length <= 1000));
   assert.deepStrictEqual(buildDigest([]), []);
+});
+
+test('письмо в ответе: абзацы сохраняются, у неподходящих пусто', () => {
+  const r = parseScore(answer({ vacancy: true, score: 9, reason: 'да', letter: 'Здравствуйте!\n\n\n\nДелал   ботов.' }));
+  assert.strictEqual(r.fields.letter, 'Здравствуйте!\n\nДелал ботов.');
+  assert.strictEqual(parseScore(answer({ score: 9 })).fields.letter, '');
+});
+
+test('карточка: вакансия, письмо блоком кода, лимит, сначала лучшие', () => {
+  const v = { title: 'Стажёр', company: 'A', score: 8, reason: 'подходит', link: 'https://hh.ru/vacancy/1', source: 'почта: hh.ru', letter: 'Здравствуйте!\nПишу <ботов> & скрипты.' };
+  assert.match(formatCard(v), /\n\nСопроводительное письмо:\n<pre>Здравствуйте!\nПишу &lt;ботов&gt; &amp; скрипты\.<\/pre>$/);
+  assert.doesNotMatch(formatCard({ ...v, letter: '' }), /Сопроводительное/);
+  const long = formatCard({ ...v, letter: 'а'.repeat(5000) });
+  assert.ok(long.length <= 4096);
+  assert.match(long, /…<\/pre>$/);
+  const cards = buildCards([{ ...v, score: 7, title: 'B' }, { ...v, score: 9, title: 'C' }]);
+  assert.deepStrictEqual(cards.map((c) => c.match(/<b>(\w)<\/b>/)[1]), ['C', 'B']);
 });
 
 test('шаблон промпта заполняется, неизвестное поле видно', () => {

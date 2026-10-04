@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { build } = require('../scripts/build-workflows.js');
-const { rssHh, tgPage } = require('./fixtures.js');
+const { rssHh, tgPage, trudvsemJson, jobMail } = require('./fixtures.js');
 
 const dir = path.join(__dirname, '..', 'workflows');
 const raw = fs.readFileSync(path.join(dir, 'collect.json'), 'utf8');
@@ -17,7 +17,7 @@ try {
 } catch {}
 const skip = DatabaseSync ? false : 'нет node:sqlite (нужен Node 22.5+)';
 
-const CHAIN = ['Расписание', 'Настройки', 'Источники', 'Загрузка', 'Отбор', 'Промпт', 'Нейросеть', 'Оценка', 'Подборка', 'Отправка'];
+const CHAIN = ['Расписание', 'Настройки', 'Источники', 'Загрузка', 'Отбор', 'Промпт', 'Нейросеть', 'Оценка', 'Карточки', 'Отправка'];
 
 test('узлы идут цепочкой, конвейер выключен', () => {
   assert.strictEqual(new Set(wf.nodes.map((n) => n.name)).size, wf.nodes.length);
@@ -27,6 +27,11 @@ test('узлы идут цепочкой, конвейер выключен', ()
   }
   assert.strictEqual(wf.active, false);
   assert.match(String(wf.id), /^[A-Za-z0-9]{16}$/, 'нужен id для импорта из командной строки');
+  assert.strictEqual(byName['Расписание'].parameters.rule.interval[0].minutesInterval, 10);
+  // Ветка почты: выключена, пока не заданы учётные данные IMAP.
+  assert.strictEqual(byName['Почта'].type, 'n8n-nodes-base.emailReadImap');
+  assert.strictEqual(byName['Почта'].disabled, true);
+  assert.strictEqual(wf.connections['Почта'].main[0][0].node, 'Письма');
   const settings = byName['Настройки'].parameters.assignments.assignments.map((a) => a.name);
   for (const k of ['LLM_BASE_URL', 'LLM_MODEL', 'CHAT_ID', 'JR_DB_PATH', 'MAX_ITEMS', 'MIN_SCORE', 'USER_AGENT']) assert.ok(settings.includes(k), k);
 });
@@ -66,9 +71,11 @@ test('узлам Code нужен только node:sqlite', () => {
     const mods = [...code.matchAll(/require\(\s*['"]([^'"]+)['"]\s*\)/g)].map((m) => m[1]);
     for (const m of mods) {
       if (m === 'node:sqlite') continue;
-      // ./text.js внутри модулей запасной: в узле text.js вклеен раньше как textLib.
-      assert.strictEqual(m, './text.js', `${n.name}: ${m}`);
-      assert.ok(code.indexOf('const textLib') < code.indexOf("require('./text.js')"), `${n.name}: textLib вклеен позже`);
+      // require('./x.js') внутри модулей запасной: в узле x.js вклеен раньше как xLib.
+      const lib = (m.match(/^\.\/(\w+)\.js$/) || [])[1];
+      assert.ok(lib, `${n.name}: ${m}`);
+      const at = code.indexOf(`const ${lib}Lib =`);
+      assert.ok(at >= 0 && at < code.indexOf(`require('${m}')`), `${n.name}: ${lib}Lib не вклеен раньше`);
     }
   }
 });
@@ -76,7 +83,7 @@ test('узлам Code нужен только node:sqlite', () => {
 // Запуск кода узла вне n8n: $input, $('Узел') и require как в узле.
 // URL и URLSearchParams закрыты, как в песочнице n8n 2.x.
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-function runNode(name, input, nodes) {
+function runNode(name, input, nodes, dbPath) {
   const wrap = (items) => ({ all: () => items, first: () => items[0], itemMatching: (i) => items[i] });
   const $ = (n) => {
     if (!nodes[n]) throw new Error(`нет данных узла ${n}`);
@@ -84,14 +91,17 @@ function runNode(name, input, nodes) {
   };
   const req = (m) => {
     if (m !== 'node:sqlite') throw new Error(`модуль закрыт: ${m}`);
-    return require(m);
+    if (!dbPath) return require(m);
+    // Ветка почты берёт путь к базе из константы: в тесте подменяется на временный файл.
+    const { DatabaseSync } = require(m);
+    return { DatabaseSync: class extends DatabaseSync { constructor() { super(dbPath); } } };
   };
   const code = byName[name].parameters.jsCode;
   return new AsyncFunction('$input', '$', 'require', 'URL', 'URLSearchParams', code)(wrap(input), $, req, undefined, undefined);
 }
 const j = (arr) => arr.map((json) => ({ json }));
 
-test('от источников до подборки на подменённых данных', { skip }, async () => {
+test('от источников и письма до сообщений на подменённых данных', { skip }, async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'jr-'));
   const db = path.join(tmp, 'j.sqlite');
   const nodes = { Настройки: j([{ JR_DB_PATH: db, MAX_ITEMS: 10, MIN_SCORE: 7 }]) };
@@ -99,13 +109,21 @@ test('от источников до подборки на подменённы�
   const sources = await runNode('Источники', [], nodes);
   assert.ok(sources.some((s) => s.json.kind === 'telegram'));
 
-  // Один поиск hh.ru, одна страница канала, один недоступный источник.
+  // У «Работы России» в адресе дата: берутся только изменённые за последние дни.
+  assert.ok(sources.some((s) => s.json.kind === 'trudvsem' && /modifiedFrom=/.test(s.json.url)));
+
+  // Письмо подписки пришло раньше запуска: вакансии ждут в очереди.
+  const mailed = await runNode('Письма', j([jobMail]), nodes, db);
+  assert.deepStrictEqual(mailed[0].json, { letters: 1, found: 2, queued: 2 });
+
+  // Один поиск hh.ru, одна страница канала, «Работа России», один недоступный источник.
   nodes['Источники'] = j([
     { kind: 'rss', name: 'hh.ru: тест', url: 'https://hh.ru/search/vacancy/rss?text=x' },
     { kind: 'telegram', name: 'Python Job', url: 'https://t.me/s/job_python' },
+    { kind: 'trudvsem', name: 'Работа России: Python', url: 'https://opendata.trudvsem.ru/api/v1/vacancies?text=python' },
     { kind: 'rss', name: 'Сломанный', url: 'https://example.com/rss' },
   ]);
-  const pages = j([{ data: rssHh }, { data: tgPage }, { error: { message: '503' } }]);
+  const pages = j([{ data: rssHh }, { data: tgPage }, { data: trudvsemJson }, { error: { message: '503' } }]);
 
   // Даты в примерах от 1–2 октября 2026, свежесть считается от текущего времени.
   const realNow = Date.now;
@@ -126,12 +144,17 @@ test('от источников до подборки на подменённы�
     Date.now = realNow;
   }
   const links = nodes['Отбор'].map((x) => x.json.link);
+  // Водитель погрузчика отсеян по ключевым словам, вакансии из письма прошли без них.
   assert.deepStrictEqual(links, [
     'https://hh.ru/vacancy/1001?query=python&hhtmFrom=rss',
     'https://hh.ru/vacancy/1003',
     'https://t.me/job_python/501',
     'https://t.me/job_python/503',
+    'https://trudvsem.ru/vacancy/card/1197746306383/5862d8e8-8a82-11f0-8356-efc3bb2eec02',
+    'https://hh.ru/vacancy/2001',
+    'https://career.habr.com/vacancies/3005',
   ]);
+  assert.strictEqual(nodes['Отбор'][5].json.fromMail, true);
   assert.strictEqual(nodes['Отбор'][2].json.source, '@job_python');
   assert.strictEqual(nodes['Отбор'][2].json.title, 'Стажёр Python-разработчик @ Пример');
 
@@ -140,6 +163,7 @@ test('от источников до подборки на подменённы�
   assert.match(p, /Заголовок: Стажёр Python-разработчик/);
   assert.match(p, /О кандидате:\n\S/);
   assert.doesNotMatch(p, /\{\{/);
+  assert.match(p, /score не ниже 7/);
 
   const ans = (o) => ({ choices: [{ message: { content: JSON.stringify(o) } }] });
   const llm = j([
@@ -147,27 +171,38 @@ test('от источников до подборки на подменённы�
     ans({ vacancy: true, score: 4, title: 'Junior', reason: 'мало подходит' }),
     ans({ vacancy: true, score: 8, title: '', company: 'Пример', reason: 'стажировка' }),
     { error: { message: '429' } },
+    ans({ vacancy: true, score: 3, reason: 'не то' }),
+    { error: { message: '429' } },
+    ans({ vacancy: true, score: 9, title: 'Стажёр по языковым моделям', reason: 'языковые модели', letter: 'Здравствуйте!\nДелаю ботов.' }),
   ]);
   nodes['Оценка'] = await runNode('Оценка', llm, nodes);
   assert.deepStrictEqual(nodes['Оценка'].map((x) => [x.json.title, x.json.score]), [
     ['Стажёр Python', 9],
     ['Стажёр Python-разработчик @ Пример', 8],
+    ['Стажёр по языковым моделям', 9],
   ]);
 
-  const digest = await runNode('Подборка', nodes['Оценка'], nodes);
-  assert.strictEqual(digest.length, 1);
-  assert.match(digest[0].json.text, /^Подходящие вакансии: 2\n\n<b>Стажёр Python<\/b> · Пример/);
+  const cards = await runNode('Карточки', nodes['Оценка'], nodes);
+  assert.strictEqual(cards.length, 3);
+  assert.match(cards[0].json.text, /^<b>Стажёр Python<\/b> · Пример/);
+  assert.match(cards[1].json.text, /<pre>Здравствуйте!\nДелаю ботов\.<\/pre>$/);
 
   const { createJournal } = require('../src/journal.js');
   const { normalizeUrl } = require('../src/filter.js');
   const conn = new DatabaseSync(db);
   const journal = createJournal(conn, { normalizeUrl });
   const s = journal.stats();
-  assert.strictEqual(s.matched, 2);
+  assert.strictEqual(s.matched, 3);
   const reasons = Object.fromEntries(s.reasons.map((r) => [r.reason, r.count]));
-  assert.deepStrictEqual(reasons, { 'стоп-слово в заголовке': 1, 'старое объявление': 1, 'ниже порога (4)': 1 });
+  assert.deepStrictEqual(reasons, {
+    'стоп-слово в заголовке': 1, 'старое объявление': 1, 'нет ключевых слов': 1, 'ниже порога (4)': 1, 'ниже порога (3)': 1,
+  });
   // Пост без ответа нейросети убран из журнала и придёт снова.
   assert.strictEqual(journal.get('https://t.me/job_python/503'), null);
+  // Вакансия из письма без ответа нейросети вернулась в очередь.
+  assert.strictEqual(journal.get('https://hh.ru/vacancy/2001'), null);
+  const { createInbox } = require('../src/inbox.js');
+  assert.deepStrictEqual(createInbox(conn).take().map((x) => x.link), ['https://hh.ru/vacancy/2001']);
   conn.close();
   fs.rmSync(tmp, { recursive: true, force: true });
 });

@@ -1,6 +1,8 @@
-// Список источников для узла «Источники»: поиски hh.ru, ленты RSS, каналы Телеграма.
-// На выходе по одному адресу на источник: { kind, name, url }.
+// Список источников для узла «Источники»: поиски «Работы России» и hh.ru, ленты RSS,
+// каналы Телеграма. На выходе по одному адресу на источник: { kind, name, url }.
 'use strict';
+
+const { trudvsemUrl } = typeof trudvsemLib !== 'undefined' ? trudvsemLib : require('./trudvsem.js');
 
 // В песочнице узла Code n8n нет URL и URLSearchParams, поэтому адреса
 // собираются и проверяются вручную.
@@ -23,8 +25,12 @@ function channelName(channel) {
   return name;
 }
 
-function buildSources(config = {}) {
+// options.now: от него «Работа России» отсчитывает свежесть (options.days дней).
+function buildSources(config = {}, options = {}) {
   const out = [];
+  for (const s of config.trudvsem || []) {
+    out.push({ kind: 'trudvsem', name: s.name, url: trudvsemUrl(s.params, { now: options.now, days: options.days ?? 4 }) });
+  }
   for (const s of config.hh || []) out.push({ kind: 'rss', name: s.name, url: hhUrl(s.params) });
   for (const s of config.rss || []) {
     const url = String(s.url || '').trim();

@@ -4,6 +4,7 @@
 // @include src/filter.js as filterLib
 // @include src/journal.js as journalLib
 // @include src/parse.js as parseLib
+// @include src/inbox.js as inboxLib
 
 const { DatabaseSync } = require('node:sqlite');
 const settings = $('Настройки').first().json;
@@ -13,12 +14,16 @@ const db = new DatabaseSync(settings.JR_DB_PATH);
 try {
   const journal = journalLib.createJournal(db, { normalizeUrl: filterLib.normalizeUrl });
   journal.init();
+  const inbox = inboxLib.createInbox(db);
+  inbox.init();
   const out = [];
   $input.all().forEach((it, i) => {
     const v = $('Промпт').itemMatching(i).json;
     const msg = it.json && it.json.choices && it.json.choices[0] && it.json.choices[0].message;
     if (!msg || typeof msg.content !== 'string') {
       journal.forget(v.link);
+      // Вакансия из письма второй раз не придёт сама: обратно в очередь.
+      if (v.fromMail) inbox.add([v]);
       return;
     }
     const r = parseLib.parseScore(msg.content, { minScore });

@@ -37,7 +37,19 @@ const clip = (v, n) => {
   return s.length > n ? s.slice(0, n - 1) + '…' : s;
 };
 
-// Ответ: {"vacancy": true, "score": 0..10, "title", "company", "salary", "format", "reason"}.
+// Письмо: абзацы сохраняются, лишние пробелы и пустые строки убираются.
+function letterOf(v) {
+  const s = String(v ?? '')
+    .split('\n')
+    .map((l) => l.replace(/[ \t]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return s.length > 1500 ? s.slice(0, 1499) + '…' : s;
+}
+
+// Ответ: {"vacancy": true, "score": 0..10, "title", "company", "salary", "format", "reason", "letter"}.
+// letter: сопроводительное письмо, только у подходящих вакансий; переносы строк сохраняются.
 // Возвращает { ok, score, fields, reason }: ok = false с причиной, если ответ не разобран,
 // это не вакансия, оценка вне шкалы или ниже порога options.minScore (по умолчанию 7).
 function parseScore(raw, options = {}) {
@@ -56,6 +68,7 @@ function parseScore(raw, options = {}) {
     salary: clip(d.salary, 80),
     format: clip(d.format, 40),
     reason: clip(d.reason, 300),
+    letter: letterOf(d.letter),
   };
   if (JUNK.some((re) => re.test(fields.reason))) return fail('похоже на отказ модели', score);
   if (score < minScore) return { ok: false, score, fields, reason: `ниже порога (${score})` };

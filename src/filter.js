@@ -106,7 +106,9 @@ function filterVacancies(items, config = {}, seen = [], options = {}) {
       continue;
     }
     const matched = findKeywords(`${title} ${item.text || ''}`, keywords);
-    if (keywords.length && !matched.length) {
+    // Вакансии из писем уже отобраны сохранённым поиском на сайте, а в письме
+    // от них только заголовок и пара строк: ключевые слова там часто не видны.
+    if (keywords.length && !matched.length && !item.fromMail) {
       reject('нет ключевых слов');
       continue;
     }

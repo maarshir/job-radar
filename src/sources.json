@@ -1,15 +1,41 @@
 {
-  "checked": "2026-10-02",
-  "note": "Поиск hh.ru отдаёт RSS по адресу /search/vacancy/rss с теми же параметрами, что у поиска на сайте; открытый поиск через api.hh.ru с весны 2026 закрыт без токена приложения. Каналы Телеграма читаются со страницы t.me/s/<канал>, предпросмотр у этих каналов открыт.",
-  "hh": [
-    { "name": "hh.ru: Python без опыта", "params": { "text": "python", "experience": "noExperience" } },
-    { "name": "hh.ru: стажёр-разработчик", "params": { "text": "стажер разработчик" } },
-    { "name": "hh.ru: нейросети без опыта", "params": { "text": "LLM OR нейросети OR \"машинное обучение\"", "experience": "noExperience" } }
+  "checked": "2026-10-04",
+  "note": "«Работа России»: открытый API Роструда opendata.trudvsem.ru, без ключа. hh.ru закрыл открытый API для соискателей, и RSS поиска с сервера тоже не отдаётся, поэтому hh.ru, SuperJob и Хабр Карьера приходят через письма подписок (узел «Почта»). Список hh оставлен пустым: поиск по RSS включается, если RSS снова станет доступен. Каналы Телеграма читаются со страницы t.me/s/<канал>.",
+  "trudvsem": [
+    {
+      "name": "Работа России: Python",
+      "params": {
+        "text": "python"
+      }
+    },
+    {
+      "name": "Работа России: разработчик, Москва",
+      "params": {
+        "text": "разработчик",
+        "region": "7700000000000"
+      }
+    },
+    {
+      "name": "Работа России: нейросети",
+      "params": {
+        "text": "нейросети"
+      }
+    }
   ],
+  "hh": [],
   "rss": [],
   "telegram": [
-    { "name": "Вакансии и стажировки для начинающих", "channel": "junior_vacancies" },
-    { "name": "Python Job", "channel": "job_python" },
-    { "name": "Young & Junior", "channel": "young_june" }
+    {
+      "name": "Вакансии и стажировки для начинающих",
+      "channel": "junior_vacancies"
+    },
+    {
+      "name": "Python Job",
+      "channel": "job_python"
+    },
+    {
+      "name": "Young & Junior",
+      "channel": "young_june"
+    }
   ]
 }

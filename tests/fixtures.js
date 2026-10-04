@@ -38,4 +38,39 @@ ${post('job_python', 502, '<div class="tgme_widget_message_reply"><div class="tg
 ${post('job_python', 503, '<div class="tgme_widget_message_text js-message_text" dir="auto">Курс по Python со скидкой 50%</div>', '2026-10-01T11:00:00+00:00')}
 </section></body></html>`;
 
-module.exports = { rssHh, atom, tgPage };
+// Ответ API «Работы России»: устроен как настоящий, данные выдуманы.
+const trudvsemJson = JSON.stringify({
+  status: '200',
+  meta: { total: 3, limit: 100 },
+  results: {
+    vacancies: [
+      { vacancy: {
+        id: '5862d8e8-8a82-11f0-8356-efc3bb2eec02', 'job-name': 'Программист Python (стажёр)', salary_min: 60000, salary_max: 0,
+        'creation-date': '2026-10-01', employment: 'Полная занятость', schedule: 'Удалённая работа',
+        company: { companycode: '1197746306383', name: 'ООО «Пример»' }, region: { name: 'г. Москва' },
+        duty: '<p>Писать ботов на Python</p>', requirement: { experience: 0, qualification: 'Знание Python' },
+        vac_url: 'https://trudvsem.ru/vacancy/card/1197746306383/5862d8e8-8a82-11f0-8356-efc3bb2eec02',
+      } },
+      { vacancy: { id: 'x2', 'job-name': 'Водитель погрузчика', 'creation-date': '2026-10-01', company: { companycode: '1' } } },
+      { vacancy: { id: 'x3', 'job-name': '' } },
+    ],
+  },
+});
+
+// Письмо подписки: ссылки обёрнуты в переход через сервис рассылки, у вакансии
+// ссылка-заголовок и кнопка «Откликнуться».
+const jobMail = {
+  subject: 'Новые вакансии по вашему поиску',
+  from: 'noreply@hh.ru',
+  date: 'Fri, 02 Oct 2026 10:00:00 +0300',
+  textHtml: `<table><tr><td>
+<a href="https://click.example.com/r?u=https%3A%2F%2Fhh.ru%2Fvacancy%2F2001%3Fquery%3Dpython%26utm_source%3Dmail">Младший разработчик <b>чат-ботов</b></a>
+<p>ООО Ромашка · от 70&nbsp;000 ₽ · Можно удалённо</p>
+<a href="https://hh.ru/vacancy/2001?utm_source=mail">Откликнуться</a>
+</td></tr><tr><td>
+<a href="https://career.habr.com/vacancies/3005?utm_campaign=x">Стажёр по языковым моделям</a><p>Компания Б, гибрид</p>
+<a href="https://hh.ru/applicant/settings">Настройки рассылки</a>
+</td></tr></table>`,
+};
+
+module.exports = { rssHh, atom, tgPage, trudvsemJson, jobMail };

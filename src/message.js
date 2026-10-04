@@ -42,6 +42,28 @@ function buildDigest(vacancies, options = {}) {
   return messages;
 }
 
+// Отдельное сообщение на вакансию: карточка и под ней сопроводительное письмо
+// блоком кода, его можно скопировать одним нажатием. Длинное письмо укорачивается
+// так, чтобы сообщение влезло в лимит Телеграма.
+function formatCard(v, options = {}) {
+  const limit = options.limit ?? TELEGRAM_TEXT_LIMIT;
+  const card = formatVacancy(v);
+  const letter = String(v.letter || '').trim();
+  if (!letter) return card;
+  const head = card + '\n\nСопроводительное письмо:\n<pre>';
+  const tail = '</pre>';
+  let body = escapeHtml(letter);
+  const room = limit - head.length - tail.length;
+  if (room < 50) return card;
+  if (body.length > room) body = body.slice(0, room - 1).replace(/&[a-z]*$/i, '') + '…';
+  return head + body + tail;
+}
+
+// Сначала лучшие: если вакансий за раз несколько, сверху придёт самая подходящая.
+function buildCards(vacancies, options = {}) {
+  return [...(vacancies || [])].sort((a, b) => b.score - a.score).map((v) => formatCard(v, options));
+}
+
 if (typeof module !== 'undefined') {
-  module.exports = { TELEGRAM_TEXT_LIMIT, escapeHtml, formatVacancy, buildDigest };
+  module.exports = { TELEGRAM_TEXT_LIMIT, escapeHtml, formatVacancy, buildDigest, formatCard, buildCards };
 }

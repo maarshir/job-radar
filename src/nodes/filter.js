@@ -1,10 +1,13 @@
-// Узел «Отбор»: страницы источников -> вакансии -> отбор и отсев повторов с учётом журнала.
+// Узел «Отбор»: страницы источников и очередь из писем -> вакансии -> отбор и отсев повторов
+// с учётом журнала.
 // Отсеянное пишется в журнал с причиной, дальше идёт не больше MAX_ITEMS вакансий.
 // @include src/text.js as textLib
 // @include src/rss.js as rssLib
+// @include src/trudvsem.js as trudvsemLib
 // @include src/telegram.js as tgLib
 // @include src/filter.js as filterLib
 // @include src/journal.js as journalLib
+// @include src/inbox.js as inboxLib
 // @include src/filter.config.json as FILTER_CONFIG
 
 const { DatabaseSync } = require('node:sqlite');
@@ -30,6 +33,10 @@ $input.all().forEach((it, i) => {
     for (const p of tgLib.parseChannelPage(body)) {
       items.push({ title: textLib.firstLine(p.text), link: p.link, text: p.text.slice(0, 3000), date: p.date, source: '@' + p.channel });
     }
+  } else if (src.kind === 'trudvsem') {
+    for (const r of trudvsemLib.parseTrudvsem(body)) {
+      items.push({ ...r, text: r.text.slice(0, 3000), source: src.name });
+    }
   } else {
     for (const r of rssLib.parseFeed(body)) {
       items.push({ title: r.title, link: r.link, text: r.text.slice(0, 3000), date: r.date, source: src.name });
@@ -41,6 +48,9 @@ const db = new DatabaseSync(settings.JR_DB_PATH);
 try {
   const journal = journalLib.createJournal(db, { normalizeUrl: filterLib.normalizeUrl });
   journal.init();
+  const inbox = inboxLib.createInbox(db);
+  inbox.init();
+  items.push(...inbox.take());
   const { accepted, rejected } = filterLib.filterVacancies(items, FILTER_CONFIG, journal.seen(30));
 
   for (const r of rejected) {
@@ -50,13 +60,19 @@ try {
   }
 
   // Сверх MAX_ITEMS в журнал не пишется: эти вакансии придут в следующий запуск.
+  // Вакансии из писем после очереди нигде больше не лежат, поэтому лишние возвращаются в очередь.
   const out = [];
+  const later = [];
   for (const a of accepted) {
-    if (out.length >= maxItems) break;
+    if (out.length >= maxItems) {
+      if (a.fromMail) later.push(a);
+      continue;
+    }
     const c = journal.collected(a);
     if (!c.added) continue;
-    out.push({ json: { id: c.item.id, title: a.title, link: a.link, text: a.text, source: a.source } });
+    out.push({ json: { id: c.item.id, title: a.title, link: a.link, text: a.text, source: a.source, fromMail: !!a.fromMail } });
   }
+  inbox.add(later);
   return out;
 } finally {
   db.close();
