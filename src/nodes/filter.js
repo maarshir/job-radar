@@ -8,6 +8,8 @@
 // @include src/filter.js as filterLib
 // @include src/journal.js as journalLib
 // @include src/inbox.js as inboxLib
+// @include src/runs.js as runsLib
+// @include src/db.js as dbLib
 // @include src/filter.config.json as FILTER_CONFIG
 
 const { DatabaseSync } = require('node:sqlite');
@@ -24,10 +26,14 @@ function sourceOf(i) {
 }
 
 const items = [];
+const failed = [];
+let sources = 0;
 $input.all().forEach((it, i) => {
   const src = sourceOf(i);
   const body = it.json && typeof it.json.data === 'string' ? it.json.data : '';
-  // Недоступный источник приходит элементом с ошибкой, без data.
+  if (src) sources++;
+  // Недоступный источник приходит элементом с ошибкой, без data: записывается в журнал запусков.
+  if (src && !body) failed.push(src.name);
   if (!src || !body) return;
   if (src.kind === 'telegram') {
     for (const p of tgLib.parseChannelPage(body)) {
@@ -44,7 +50,7 @@ $input.all().forEach((it, i) => {
   }
 });
 
-const db = new DatabaseSync(settings.JR_DB_PATH);
+const db = dbLib.openDb(DatabaseSync, settings.JR_DB_PATH);
 try {
   const journal = journalLib.createJournal(db, { normalizeUrl: filterLib.normalizeUrl });
   journal.init();
@@ -73,6 +79,9 @@ try {
     out.push({ json: { id: c.item.id, title: a.title, link: a.link, text: a.text, source: a.source, fromMail: !!a.fromMail } });
   }
   inbox.add(later);
+  const runs = runsLib.createRuns(db);
+  runs.init();
+  runs.start({ sources, failed, found: accepted.length, sent: out.length });
   return out;
 } finally {
   db.close();

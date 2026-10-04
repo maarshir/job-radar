@@ -163,7 +163,8 @@ test('от источников и письма до сообщений на п�
   assert.match(p, /Заголовок: Стажёр Python-разработчик/);
   assert.match(p, /О кандидате:\n\S/);
   assert.doesNotMatch(p, /\{\{/);
-  assert.match(p, /score не ниже 7/);
+  // Письмо пишется с оценки 5, даже если порог выше: вакансии ниже порога можно запросить из бота.
+  assert.match(p, /score не ниже 5/);
 
   const ans = (o) => ({ choices: [{ message: { content: JSON.stringify(o) } }] });
   const llm = j([
@@ -197,12 +198,86 @@ test('от источников и письма до сообщений на п�
   assert.deepStrictEqual(reasons, {
     'стоп-слово в заголовке': 1, 'старое объявление': 1, 'нет ключевых слов': 1, 'ниже порога (4)': 1, 'ниже порога (3)': 1,
   });
+  // У вакансии ниже порога сохранены поля ответа нейросети: её можно показать из бота.
+  const low = journal.below({ from: 0, to: 7 });
+  assert.deepStrictEqual(low.map((r) => [r.score, r.why]), [[4, 'мало подходит'], [3, 'не то']]);
+  // Журнал запусков: недоступный источник и ошибки нейросети видны боту.
+  const { createRuns } = require('../src/runs.js');
+  const run = createRuns(conn).last();
+  assert.deepStrictEqual(run.failed, ['Сломанный']);
+  assert.deepStrictEqual([run.sources, run.sent, run.scored, run.matched, run.llm_errors], [4, 7, 5, 3, 2]);
+  assert.ok(run.finished_at);
   // Пост без ответа нейросети убран из журнала и придёт снова.
   assert.strictEqual(journal.get('https://t.me/job_python/503'), null);
   // Вакансия из письма без ответа нейросети вернулась в очередь.
   assert.strictEqual(journal.get('https://hh.ru/vacancy/2001'), null);
   const { createInbox } = require('../src/inbox.js');
   assert.deepStrictEqual(createInbox(conn).take().map((x) => x.link), ['https://hh.ru/vacancy/2001']);
+  conn.close();
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+// Конвейер бота: те же правила, что у сбора, плюс порядок узлов.
+const botRaw = fs.readFileSync(path.join(dir, 'bot.json'), 'utf8');
+const bot = JSON.parse(botRaw);
+const botNodes = Object.fromEntries(bot.nodes.map((n) => [n.name, n]));
+
+test('конвейер бота: цепочка, без ключей, успешные запуски не сохраняются', () => {
+  const chain = ['Каждые 10 секунд', 'Настройки бота', 'Смещение', 'Обновления', 'Команды', 'Ответы'];
+  for (let i = 0; i + 1 < chain.length; i++) {
+    assert.strictEqual(bot.connections[chain[i]].main[0][0].node, chain[i + 1], chain[i]);
+  }
+  assert.strictEqual(bot.active, false);
+  assert.match(String(bot.id), /^[A-Za-z0-9]{16}$/);
+  assert.notStrictEqual(bot.id, wf.id);
+  const cfg = Object.fromEntries(botNodes['Настройки бота'].parameters.assignments.assignments.map((a) => [a.name, a.value]));
+  assert.deepStrictEqual(Object.keys(cfg), ['BOT_TOKEN', 'CHAT_ID', 'JR_DB_PATH', 'MIN_SCORE']);
+  assert.strictEqual(cfg.BOT_TOKEN, '');
+  assert.strictEqual(cfg.JR_DB_PATH, byName['Настройки'].parameters.assignments.assignments.find((a) => a.name === 'JR_DB_PATH').value);
+  assert.doesNotMatch(botRaw, /\b\d{8,10}:[A-Za-z0-9_-]{30,}/);
+  assert.doesNotMatch(botRaw, /\$env\b|process\.env/);
+  assert.strictEqual(bot.settings.saveDataSuccessExecution, 'none');
+  // Запрос обновлений короче интервала расписания, иначе запуски наложатся.
+  assert.match(botNodes['Обновления'].parameters.url, /timeout=5&/);
+  assert.strictEqual(botNodes['Каждые 10 секунд'].parameters.rule.interval[0].secondsInterval, 10);
+  for (const n of ['Обновления', 'Ответы']) assert.strictEqual(botNodes[n].onError, 'continueRegularOutput', n);
+});
+
+function runBotNode(name, input, nodes) {
+  const wrap = (items) => ({ all: () => items, first: () => items[0], itemMatching: (i) => items[i] });
+  const $ = (n) => wrap(nodes[n]);
+  const req = (m) => {
+    if (m !== 'node:sqlite') throw new Error(`модуль закрыт: ${m}`);
+    return require(m);
+  };
+  return new AsyncFunction('$input', '$', 'require', 'URL', 'URLSearchParams', botNodes[name].parameters.jsCode)(wrap(input), $, req, undefined, undefined);
+}
+
+test('бот: смещение, ответ только хозяину, порог сохраняется в базе', { skip }, async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'jrb-'));
+  const db = path.join(tmp, 'b.sqlite');
+  const nodes = { 'Настройки бота': j([{ JR_DB_PATH: db, CHAT_ID: '42', MIN_SCORE: 7 }]) };
+  assert.deepStrictEqual((await runBotNode('Смещение', [], nodes))[0].json, { offset: 0 });
+
+  const upd = {
+    ok: true,
+    result: [
+      { update_id: 10, message: { chat: { id: 42 }, text: 'Статистика' } },
+      { update_id: 11, message: { chat: { id: 99 }, text: 'Статистика' } },
+      { update_id: 12, callback_query: { id: 'q', data: 'score:5', message: { chat: { id: 42 } } } },
+    ],
+  };
+  const out = (await runBotNode('Команды', j([upd]), nodes)).map((x) => x.json);
+  assert.deepStrictEqual(out.map((a) => a.method), ['sendMessage', 'answerCallbackQuery', 'sendMessage']);
+  assert.ok(out.every((a) => a.method !== 'sendMessage' || a.body.chat_id === '42'));
+  assert.match(out[0].body.text, /Порог сейчас: 7/);
+  assert.match(out[2].body.text, /Порог теперь 5/);
+  assert.deepStrictEqual((await runBotNode('Смещение', [], nodes))[0].json, { offset: 13 });
+  assert.deepStrictEqual(await runBotNode('Команды', j([{ ok: false }]), nodes), []);
+
+  const { createSettings } = require('../src/settings.js');
+  const conn = new DatabaseSync(db);
+  assert.strictEqual(createSettings(conn).get('min_score'), '5');
   conn.close();
   fs.rmSync(tmp, { recursive: true, force: true });
 });

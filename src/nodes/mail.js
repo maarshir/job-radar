@@ -4,6 +4,7 @@
 // @include src/text.js as textLib
 // @include src/mail.js as mailLib
 // @include src/inbox.js as inboxLib
+// @include src/db.js as dbLib
 
 const { DatabaseSync } = require('node:sqlite');
 
@@ -13,7 +14,7 @@ for (const it of $input.all()) {
   found.push(...mailLib.parseJobMail({ subject: m.subject, from: m.from, date: m.date, html: m.textHtml || m.html, text: m.textPlain || m.text }));
 }
 
-const db = new DatabaseSync(inboxLib.DEFAULT_DB_PATH);
+const db = dbLib.openDb(DatabaseSync, inboxLib.DEFAULT_DB_PATH);
 try {
   const inbox = inboxLib.createInbox(db);
   inbox.init();

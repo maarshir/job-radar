@@ -1,0 +1,207 @@
+{
+  "name": "job-radar: бот",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds",
+              "secondsInterval": 10
+            }
+          ]
+        }
+      },
+      "id": "7c1e0b20-0001-4e3a-8d01-000000000001",
+      "name": "Каждые 10 секунд",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b1",
+              "name": "BOT_TOKEN",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "b2",
+              "name": "CHAT_ID",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "b3",
+              "name": "JR_DB_PATH",
+              "value": "/home/node/.n8n/job-radar.sqlite",
+              "type": "string"
+            },
+            {
+              "id": "b4",
+              "name": "MIN_SCORE",
+              "value": 7,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7c1e0b20-0002-4e3a-8d01-000000000002",
+      "name": "Настройки бота",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ],
+      "notes": "BOT_TOKEN: токен того же бота, что в конвейере сбора (у @BotFather). CHAT_ID: тот же номер чата. MIN_SCORE: порог по умолчанию, пока его не поменяли кнопкой в боте."
+    },
+    {
+      "parameters": {
+        "jsCode": ""
+      },
+      "id": "7c1e0b20-0003-4e3a-8d01-000000000003",
+      "name": "Смещение",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "notes": "Код: src/nodes/bot-offset.js"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://api.telegram.org/bot' + $('Настройки бота').first().json.BOT_TOKEN + '/getUpdates?timeout=5&offset=' + $json.offset + '&allowed_updates=' + encodeURIComponent('[\"message\",\"callback_query\"]') }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "7c1e0b20-0004-4e3a-8d01-000000000004",
+      "name": "Обновления",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "Новые сообщения и нажатия кнопок. Запрос ждёт до 5 секунд, поэтому бот отвечает почти сразу без вебхука и публичного адреса."
+    },
+    {
+      "parameters": {
+        "jsCode": ""
+      },
+      "id": "7c1e0b20-0005-4e3a-8d01-000000000005",
+      "name": "Команды",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ],
+      "notes": "Код: src/nodes/bot.js"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://api.telegram.org/bot' + $('Настройки бота').first().json.BOT_TOKEN + '/' + $json.method }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 300
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "7c1e0b20-0006-4e3a-8d01-000000000006",
+      "name": "Ответы",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "Отправка ответов по одному, чтобы сообщения шли по порядку."
+    }
+  ],
+  "connections": {
+    "Каждые 10 секунд": {
+      "main": [
+        [
+          {
+            "node": "Настройки бота",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Настройки бота": {
+      "main": [
+        [
+          {
+            "node": "Смещение",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Смещение": {
+      "main": [
+        [
+          {
+            "node": "Обновления",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Обновления": {
+      "main": [
+        [
+          {
+            "node": "Команды",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Команды": {
+      "main": [
+        [
+          {
+            "node": "Ответы",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Moscow",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "active": false,
+  "id": "fda6c0768a8c347f"
+}
