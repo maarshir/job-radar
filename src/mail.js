@@ -52,22 +52,30 @@ const clean = (s) => htmlToText(s).replace(/\s+/g, ' ').trim();
 
 // mail: { subject, from, date, html, text }. Возвращает записи { title, link, text, date, source }.
 // Одна вакансия в письме обычно встречается несколько раз (заголовок, кнопка, картинка):
-// берётся ссылка с самым длинным текстом.
+// берётся ссылка с самым длинным текстом. Текст рядом берётся только до первой ссылки
+// на другую вакансию, иначе в него попадает соседняя карточка письма.
 function parseJobMail(mail = {}) {
   const html = String(mail.html || '');
   const date = Number.isFinite(Date.parse(mail.date)) ? new Date(Date.parse(mail.date)).toISOString() : null;
-  const found = new Map();
+  const anchors = [];
   for (const m of html.matchAll(/<a\b[^>]*?href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
     const v = vacancyLink(m[1]);
-    if (!v) continue;
-    const title = clean(m[2]);
-    const end = m.index + m[0].length;
-    const after = clean(html.slice(end, end + 3000)).slice(0, 500);
-    const old = found.get(v.link);
-    if (!old || title.length > old.title.length) {
-      found.set(v.link, { title, link: v.link, text: after, date, source: `почта: ${v.site}` });
-    }
+    if (v) anchors.push({ v, title: clean(m[2]), start: m.index, end: m.index + m[0].length });
   }
+  const found = new Map();
+  anchors.forEach((a, i) => {
+    const next = anchors.slice(i + 1).find((b) => b.v.link !== a.v.link);
+    const stop = next ? next.start : Math.min(html.length, a.end + 3000);
+    const after = clean(html.slice(a.end, stop))
+      .replace(/(Откликнуться|Подробнее|Смотреть вакансию|Открыть вакансию)/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 500);
+    const old = found.get(a.v.link);
+    if (!old || a.title.length > old.title.length) {
+      found.set(a.v.link, { title: a.title, link: a.v.link, text: after, date, source: `почта: ${a.v.site}` });
+    }
+  });
   // Письмо только текстом: ссылки без тегов, заголовок берётся из строки перед ссылкой.
   if (!found.size && mail.text) {
     const lines = String(mail.text).split('\n').map((l) => l.trim());

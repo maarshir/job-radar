@@ -52,6 +52,7 @@ test('письмо подписки -> вакансии с заголовком 
     ['https://career.habr.com/vacancies/3005', 'Стажёр по языковым моделям', 'почта: Хабр Карьера'],
   ]);
   assert.match(r[0].text, /^ООО Ромашка · от 70 000 ₽ · Можно удалённо/);
+  assert.doesNotMatch(r[0].text, /Стажёр по языковым моделям|Компания Б|Откликнуться/);
   assert.strictEqual(r[0].date, '2026-10-02T07:00:00.000Z');
 
   const plain = parseJobMail({ text: 'Junior Python\nhttps://hh.ru/vacancy/9?from=mail\nКомпания В' });

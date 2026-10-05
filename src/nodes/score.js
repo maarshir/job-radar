@@ -43,7 +43,9 @@ try {
       return;
     }
     journal.matched(v.link, r.score, r.fields.reason, r.fields);
-    out.push({ json: { ...r.fields, title: r.fields.title || v.title, score: r.score, link: v.link, source: v.source } });
+    // У вакансий из писем заголовок взят прямо из ссылки на вакансию: он точно ей соответствует.
+    const title = v.fromMail ? v.title : r.fields.title || v.title;
+    out.push({ json: { ...r.fields, title, score: r.score, link: v.link, source: v.source } });
   });
   runs.finish({ scored: $input.all().length - llmErrors, matched: out.length, llmErrors });
   return out;
