@@ -52,6 +52,27 @@ function findKeywords(text, keywords) {
   return (keywords || []).filter((k) => keywordMatches(tt, k));
 }
 
+// Сколько лет опыта требует вакансия: наибольшее число из фраз вроде «опыт от 3 лет»,
+// «опыт работы не менее 2 лет», «3+ года», «Опыт, лет: 2». null, если не указано.
+const EXPERIENCE = [
+  /опыт[а-я]*,?\s*(?:работы\s*)?(?:коммерческой\s*)?(?:разработки\s*)?(?:лет:?\s*)?(?:от|не\s*менее|более|свыше|больше|>=?)?\s*(\d+(?:[.,]\d+)?)\s*\+?\s*(?:лет|года?|г\.|-?х)?/gi,
+  /(?:от|не\s*менее|более|свыше)\s*(\d+(?:[.,]\d+)?)\s*(?:лет|года?)\s*(?:коммерческого\s*|подтвержд[а-я]*\s*|практического\s*)?опыт/gi,
+  /(\d+(?:[.,]\d+)?)\s*\+\s*(?:лет|года?|years?)/gi,
+  /(\d+(?:[.,]\d+)?)\s*\+?\s*years?\s*(?:of\s*)?(?:commercial\s*|professional\s*)?experience/gi,
+];
+
+function requiredExperience(text) {
+  const s = String(text || '').replace(/ё/gi, 'е');
+  let max = null;
+  for (const re of EXPERIENCE) {
+    for (const m of s.matchAll(re)) {
+      const n = Number(m[1].replace(',', '.'));
+      if (Number.isFinite(n) && n <= 15 && (max === null || n > max)) max = n;
+    }
+  }
+  return max;
+}
+
 // Отпечаток для сравнения: заголовок и начало текста.
 function fingerprint(item) {
   return `${(item && item.title) || ''} ${String((item && item.text) || '').slice(0, 300)}`;
@@ -105,6 +126,11 @@ function filterVacancies(items, config = {}, seen = [], options = {}) {
       reject('стоп-слово в заголовке', { matched: bad });
       continue;
     }
+    const years = config.maxExperienceYears != null ? requiredExperience(`${title}\n${item.text || ''}`) : null;
+    if (years !== null && years > config.maxExperienceYears) {
+      reject('требуется большой опыт', { years });
+      continue;
+    }
     const matched = findKeywords(`${title} ${item.text || ''}`, keywords);
     // Вакансии из писем уже отобраны сохранённым поиском на сайте, а в письме
     // от них только заголовок и пара строк: ключевые слова там часто не видны.
@@ -132,5 +158,5 @@ function filterVacancies(items, config = {}, seen = [], options = {}) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { normalizeUrl, findKeywords, similarity, filterVacancies };
+  module.exports = { normalizeUrl, findKeywords, similarity, filterVacancies, requiredExperience };
 }
